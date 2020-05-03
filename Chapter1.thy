@@ -81,6 +81,7 @@ begin
  
     definition collinear :: "'point  \<Rightarrow> 'point \<Rightarrow> 'point \<Rightarrow> bool"
       where "collinear A B C \<longleftrightarrow> (\<exists> l. meets A l \<and> meets B l \<and> meets C l)"
+
   end
   value "affine_plane_data"
 
@@ -255,6 +256,12 @@ This is the smallest affine plane. [NB: We'll return to this final claim present
   (* Two lines meet in at most one point *)
   lemma (in affine_plane) prop1P2: "\<lbrakk>l \<noteq> m; meets P l; meets P m; meets Q l; meets Q m\<rbrakk> \<Longrightarrow> P = Q"
     using a1 by auto
+
+
+
+
+  
+
 
 
 text \<open>\daniel
@@ -842,6 +849,11 @@ by using the wonderful ``nitpick'' prover.
 We start by defining two datatypes, each of which is just an enumerated type; there
 are four points and six suggestively-named lines:
 \done\<close>
+
+  
+
+
+
 datatype pts = Ppt | Qpt | Rpt | Spt
 datatype lns = PQln | PRln | PSln | QRln | QSln | RSln
 text\<open>\spike 
@@ -956,12 +968,38 @@ $\forall y \in Y, \exists x \in X$ such that $T(x)=y.$
   definition (in affine_plane_data) line_pencil :: "'line  \<Rightarrow> 'line set"
     where "line_pencil l = {m .  l||m}"
 
+definition (in affine_plane_data) points_on_line :: "'line \<Rightarrow> 'point set"
+  where "points_on_line l = {P. meets P l}"
+
+lemma (in affine_plane) lines_same_card:
+  fixes l :: 'line
+  fixes m :: 'line
+  shows "card(points_on_line l) = card(points_on_line m)"
+  sorry
+
+  (* given two points on a line in an affine plane, there must be a third point *)
+lemma (in affine_plane) third_pt_off_line: 
+  fixes l ::'line
+  assumes "card(points_on_line l) = 2"
+  shows "\<exists> R. \<not> meets R l"
+proof -
+  obtain P Q where PQ: "P \<noteq> Q \<and> P \<in> (points_on_line l) \<and> Q \<in> (points_on_line l)"
+    using affine_plane_data.points_on_line_def contained_points by fastforce
+  obtain R where R: "\<not> meets R l"
+    using a3 collinear_def by blast
+  show ?thesis
+    using R by blast
+qed
+
 text  \<open> 
 \spike
   I've skipped the notion of 1-1 correspondence, because Isabelle already has a notion 
   of bijections: there's a function "bij" that consumes a function and produces a boolean.
 \done
 \<close>
+
+
+
 
 
 text  \<open> 
