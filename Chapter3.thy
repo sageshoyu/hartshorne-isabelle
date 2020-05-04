@@ -424,6 +424,111 @@ lemma add_then_rm_elt_sm_fun:
   by (smt Bij_imp_extensional Diff_insert_absorb assms(2) assms(3) assms(4) extensional_restrict mk_disjoint_insert restrict_ext)
 
 
+lemma bij_betw_stabx_bijminx:
+  assumes "card S \<ge> 2" "x \<in> S"
+  assumes "G = BijGroup S" "Gx = stabilizer G (\<lambda>f. f) x"
+  assumes "S' = S - {x}" "Gx' = Bij S'"
+  shows "\<exists>f. bij_betw f Gx Gx'"
+proof
+  let ?f = "\<lambda>g. restrict g S'"
+  let ?finv = "\<lambda>g y. if y = x then x else g y"
+
+  have left: "\<forall>a \<in> Gx. ?finv (?f a) = a"
+  proof
+    fix a assume a: "a \<in> Gx"
+    show "?finv (?f a) = a"
+    proof 
+      fix y
+      show "(?finv (?f a)) y = a y"
+        using rm_elt_then_add_sm_fun 
+        by (smt BijGroup_def a assms(1) assms(2) assms(3) assms(4) assms(5) mem_Collect_eq partial_object.select_convs(1) stabilizer_def)
+    qed
+  qed
+
+  have right: "\<forall>a \<in> Gx'. ?f (?finv a) = a"
+  proof
+    fix a assume a: "a \<in> Gx'"
+    show "?f (?finv a) = a"
+    proof
+      fix y
+      show "(?f (?finv a)) y = a y"
+        using add_then_rm_elt_sm_fun 
+        by (metis (no_types, lifting) a assms(1) assms(2) assms(5) assms(6) restrict_apply)
+    qed
+  qed
+
+  have img1: "?f ` Gx \<subseteq> Gx'"
+    by (smt BijGroup_def Bij_def Int_Collect assms(2) assms(3) assms(4) assms(5) assms(6) bij_betw_restrict_eq bij_when_rm_fixed_el image_subset_iff mem_Collect_eq partial_object.simps(1) restrict_extensional stabilizer_def)
+
+  have img2: "?finv ` Gx' \<subseteq> Gx"
+  proof
+    fix g assume g: "g \<in> ?finv ` Gx'"
+    show "g \<in> Gx"
+    proof
+      have gstab: "g \<in> stabilizer G (\<lambda>f. f) x"
+      proof
+        have gcar: "g \<in> carrier G"
+        proof
+          have "g \<in> Bij S"
+          proof -
+            have "g \<in> extensional S"
+              by (smt Bij_imp_extensional CollectI Diff_subset assms(2) assms(5) assms(6) extensional_arb extensional_def g imageE subset_eq)
+            have "bij_betw g S S"
+            proof -
+              have "inj_on g S"
+                by (smt Bij_def Diff_insert_absorb Int_Collect assms(2) assms(5) assms(6) bij_betw_def g imageE image_eqI inj_on_def insert_iff mk_disjoint_insert)
+              have "g ` S = S"
+              proof -
+                have "\<forall>a \<in> S. \<exists>b\<in>S. g b = a"
+                proof
+                  fix a assume a: "a \<in> S"
+                  show "\<exists>b \<in> S. g b = a"
+                  proof (cases "a = x")
+                    case True
+                    then show ?thesis
+                      using assms(2) g by auto
+                  next
+                    case False
+                    have a_sp: "a \<in> S'"
+                      by (simp add: False a assms(5))
+                    obtain b where b: "b \<in> S'" and "g b = a"
+                      using a_sp bij_betw_def image_def g assms(5) Bij_def
+                      by (smt Diff_iff Int_Collect assms(6) imageE insertCI)
+                    then show ?thesis
+                      using assms(5) by blast
+                  qed
+                qed
+                thus ?thesis
+                  by (smt Bij_def Diff_iff Diff_insert_absorb Int_Collect assms(5) assms(6) bij_betw_def g imageE image_insert image_restrict_eq insert_Diff_single mk_disjoint_insert right)
+              qed
+              thus ?thesis
+              by (simp add: \<open>inj_on g S\<close> bij_betw_def)
+            qed
+            thus ?thesis
+              by (simp add: Bij_def \<open>g \<in> extensional S\<close>) 
+          qed
+          thus ?thesis
+            by (simp add: BijGroup_def assms(3))
+          show "carrier G \<subseteq> carrier G" by simp
+        qed
+        have gx_eq_x: "g x = x"
+          using g by auto
+        thus ?thesis using gcar gx_eq_x
+          by (simp add: stabilizer_def)
+        show "stabilizer G (\<lambda>f. f) x \<subseteq> stabilizer G (\<lambda>f. f) x"
+          by simp
+      qed
+      thus ?thesis 
+        using assms(4) by simp
+      show "Gx \<subseteq> Gx" by simp
+    qed
+  qed
+  show "bij_betw ?f Gx Gx'"
+    using left right img1 img2 bij_betw_byWitness
+    by auto
+qed
+    
+
 lemma induct_num_perms:
   fixes n :: "nat"
   assumes "card S = n + 1 \<Longrightarrow> G = BijGroup S  \<Longrightarrow> card (carrier G) = fact(n + 1)"
@@ -450,137 +555,14 @@ proof -
     they are also isomorphic, but that's a good deal of work for Isabelle. *)
     let ?K' = "K - {x}"
     let ?Hx' = "carrier (BijGroup ?K')"
-    let ?phi = "\<lambda>f. restrict f ?K'"
-    let ?phi_inv = "\<lambda>f y. if y = x then x else f y"
-    have hx_bij: "?Hx' = Bij ?K'" by (simp add: BijGroup_def)
 
+    have bij_hx: "\<exists>f. bij_betw f Hx ?Hx'"
+      using bij_betw_stabx_bijminx BijGroup_def 
+      by (metis Hx add_diff_cancel_left' assms(2) assms(3) diff_le_self partial_object.select_convs(1) x)
 
-    (* I proved these claims just to sanity check the correctness of the formations above.
-      They also are helpful for proving surjectivity of phi.*)
-    have cod_phi_hxp: "\<And>f. \<lbrakk>f \<in> Hx\<rbrakk> \<Longrightarrow> (?phi f) \<in> ?Hx'"
-    proof -
-      fix f assume f: "f \<in> Hx"
-      show "?phi f \<in> ?Hx'"
-      proof -
-        have "?phi f \<in> Bij ?K'"
-          unfolding Bij_def
-        proof
-          show "(?phi f) \<in> extensional ?K'"
-            by simp
-          show "(?phi f) \<in> {h. bij_betw h ?K' ?K'}"
-          proof
-            have bij_res: "bij_betw f ?K' ?K'"
-              using bij_when_rm_fixed_el
-              by (metis (mono_tags, lifting) BijGroup_def Bij_def Hx Int_Collect assms(3) f mem_Collect_eq partial_object.select_convs(1) stabilizer_def x)
-            then show "bij_betw (?phi f) ?K' ?K'"
-              using bij_betw_restrict_eq by blast
-          qed
-        qed
-        thus ?thesis
-          using hx_bij by simp
-      qed
-    qed   
+    then have cd_sm: "card Hx = card ?Hx'"
+      using bij_betw_same_card by blast  
 
-    have cod_phi_inv_hx: "\<And>f. \<lbrakk>f \<in> ?Hx'\<rbrakk> \<Longrightarrow> (?phi_inv f) \<in> Hx"
-    proof -
-      fix f assume f: "f \<in> ?Hx'"
-      show "?phi_inv f \<in> Hx"
-      proof -
-        have "f \<in> Bij ?K'"
-          using hx_bij f
-          by blast
-        have "?phi_inv f \<in> stabilizer H (\<lambda>g. g) x"
-          unfolding stabilizer_def
-        proof
-          show "?phi_inv f \<in> carrier H \<and> (?phi_inv f) x = x"
-          proof (intro conjI)
-            show "(?phi_inv f) x = x"
-              by simp
-            show "?phi_inv f \<in> carrier H"
-            proof -
-              have "?phi_inv f \<in> Bij K"
-                unfolding Bij_def
-              proof
-                show "?phi_inv f \<in> extensional K"
-                  by (smt Bij_imp_extensional \<open>f \<in> Bij (K - {x})\<close> extensional_def insertCI insert_Diff mem_Collect_eq x)
-                show "?phi_inv f \<in> {f. bij_betw f K K}"
-                proof
-                  have i: "inj_on (?phi_inv f) K"
-                    using inj_on_def x f bij_group_action
-                    by (smt Diff_insert_absorb group_action.element_image group_action.inj_prop insert_iff mk_disjoint_insert)
-                  have s: "(?phi_inv f) ` K = K"
-                    sorry (*I'm not too worried about this one*)
-                  show "bij_betw (?phi_inv f) K K"
-                    using i s bij_betw_def 
-                    by blast
-                qed
-              qed
-              thus ?thesis
-                using BijGroup_def
-                by (simp add: BijGroup_def assms(3))
-            qed
-          qed
-        qed
-        thus ?thesis
-          using Hx by blast
-      qed
-    qed
-               
-    have cd_sm: "card Hx = card ?Hx'"
-    proof -
-      have "bij_betw ?phi Hx ?Hx'"
-        unfolding bij_betw_def
-      proof (intro conjI)
-        show "inj_on ?phi Hx"
-        proof
-          fix a b assume ab: "a \<in> Hx" "b \<in> Hx"
-          show "(?phi a) = (?phi b) \<Longrightarrow> a = b"
-          proof -
-            assume phi_eq: "(?phi a) = (?phi b)"
-            have a_inv_a: "a = ?phi_inv (?phi a)"
-              using rm_elt_then_add_sm_fun
-              sorry (*for one reason or another, sledgehammer/try won't confirm these, even
-                     when I provd rm_elt_then_add_sm_fun. But I think this is a solvable
-                     once I prove that if a function is invertible <=> bijective. *)
-            have b_inv_b: "b = ?phi_inv (?phi b)"
-              using rm_elt_then_add_sm_fun hx_bij cod_phi_hxp
-              sorry
-            then have b_inv_a: "b = ?phi_inv (?phi a)"
-              using phi_eq
-              by metis
-            then show "a = b"
-              using a_inv_a b_inv_a
-              by simp
-          qed
-        qed
-        show "?phi ` Hx = ?Hx'"
-        proof
-          show "?phi ` Hx \<subseteq> ?Hx'" 
-            using cod_phi_hxp by blast
-          show "?Hx' \<subseteq> ?phi ` Hx"
-          proof
-            fix g assume g: "g \<in> ?Hx'"
-            have "g \<in> Bij ?K'"
-              using hx_bij g by blast
-            show "g \<in> ?phi ` Hx"
-              unfolding image_def
-            proof
-              let ?g' = "?phi_inv g"
-              have g'_in_hx: "?g' \<in> Hx"
-                using cod_phi_inv_hx g by blast
-              then have g_back: "g = ?phi ?g'"
-                using add_then_rm_elt_sm_fun 
-                by (metis (no_types, lifting) \<open>g \<in> Bij (K - {x})\<close> add_diff_cancel_left' assms(2) diff_le_self restrict_ext x)
-              show "\<exists>g' \<in> Hx. g = ?phi g'"
-                using g'_in_hx g_back 
-                by auto
-            qed
-          qed
-        qed
-      qed     
-      thus ?thesis
-        using bij_betw_same_card by blast
-    qed
     have "card (K - {x}) = n + 1"
       using assms(2)
       by (metis One_nat_def Suc_eq_plus1 add_Suc_shift add_diff_cancel_right' card.infinite card_Diff_singleton nat.simps(3) numeral_2_eq_2 x)
